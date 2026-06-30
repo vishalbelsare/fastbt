@@ -99,4 +99,23 @@ file_patterns = {
         "https://nsearchives.nseindia.com/content/equities/mrg_trading_{date}.zip",
         lambda x: {"date": x.strftime("%d%m%y")},
     ),
+    "aub": (
+        "https://nsearchives.nseindia.com/content/nsccl/AUB_{year}110_{date}.csv",
+        lambda x: {
+            "year": x.year,
+            "date": x.strftime("%d%m%Y"),
+        },
+    ),
+    "slbm_oi": (
+        "https://nsearchives.nseindia.com/archives/slbs/open_pos/slb_openpos_{date}.csv",
+        lambda x: {"date": x.strftime("%d%m%Y")},
+    ),
+    "slbm_bhav": (
+        "https://nsearchives.nseindia.com/archives/slbs/bhavcopy/SLBM_BC_{date}.DAT",
+        lambda x: {"date": x.strftime("%d%m%Y")},
+    ),
+    "slbm_fc": (
+        "https://nsearchives.nseindia.com/content/slbs/Forclosure_SLB_{date}.CSV",
+        lambda x: {"date": x.strftime("%Y%m%d")},
+    ),
 }
