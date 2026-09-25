@@ -16,7 +16,7 @@ import re
 
 import duckdb
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 _VALID_COLUMN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -76,19 +76,29 @@ class DuckDBParquetLoader(DataSource):
     The cache in BarContext is the guard against look-ahead bias, not the query.
     """
 
-    def __init__(self, filepath: str, extra_columns: Optional[List[str]] = None):
+    def __init__(
+        self,
+        filepath: str,
+        extra_columns: Optional[List[str]] = None,
+        threads: Optional[int] = None,
+    ):
         """
         Args:
             filepath:      Path to the Parquet file.
             extra_columns: Additional columns to fetch alongside OHLCV.
                            Example: ["delta", "calc_iv", "open_interest"]
                            Defaults to OHLCV only.
+            threads:       DuckDB worker threads for this connection. None keeps
+                           DuckDB's default (all cores); pass 1 when many
+                           processes each hold a loader, to avoid oversubscription.
         """
         self.filepath = filepath
         self.extra_columns: List[str] = extra_columns or []
         _validate_column_names(self.extra_columns)
         # Read-only memory connection for extreme speed
         self.con = duckdb.connect()
+        if threads is not None:
+            self.con.execute(f"SET threads TO {int(threads)}")
 
     def get_underlying_data(self, date_str: str) -> Dict[str, float]:
         """
@@ -203,18 +213,28 @@ class DuckDBVortexLoader(DataSource):
         )
     """
 
-    def __init__(self, filepath: str, extra_columns: Optional[List[str]] = None):
+    def __init__(
+        self,
+        filepath: str,
+        extra_columns: Optional[List[str]] = None,
+        threads: Optional[int] = None,
+    ):
         """
         Args:
             filepath:      Path to the .vortex file.
             extra_columns: Additional columns to fetch alongside OHLCV.
                            Example: ["delta", "calc_iv", "open_interest"]
                            Defaults to OHLCV only.
+            threads:       DuckDB worker threads for this connection. None keeps
+                           DuckDB's default (all cores); pass 1 when many
+                           processes each hold a loader, to avoid oversubscription.
         """
         self.filepath = filepath
         self.extra_columns: List[str] = extra_columns or []
         _validate_column_names(self.extra_columns)
         self.con = duckdb.connect()
+        if threads is not None:
+            self.con.execute(f"SET threads TO {int(threads)}")
         # Install once; subsequent calls are no-ops if already installed
         self.con.execute("INSTALL vortex; LOAD vortex;")
 
@@ -274,11 +294,13 @@ class DuckDBVortexLoader(DataSource):
         results = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
 
-        data: Dict[str, Dict[str, float]] = {}
+        data: Dict[str, Dict[str, Any]] = {}
         for row in results:
             time_str = str(row[0])
+            # Raw values, not float(): greeks can be NULL on illiquid strikes and
+            # extra columns may be non-numeric (e.g. VARCHAR expiry).
             data[time_str] = {
-                column_names[i]: float(row[i]) for i in range(1, len(column_names))
+                column_names[i]: row[i] for i in range(1, len(column_names))
             }
         return data
 
