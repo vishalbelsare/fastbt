@@ -16,6 +16,7 @@ import re
 
 import duckdb
 from abc import ABC, abstractmethod
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
 
 _VALID_COLUMN_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -26,6 +27,22 @@ def _validate_column_names(columns: List[str]) -> None:
     for col in columns:
         if not _VALID_COLUMN_RE.match(col):
             raise ValueError(f"Invalid column name: {col!r}")
+
+
+def _coerce_value(value: Any) -> Any:
+    """
+    Normalise one DuckDB cell for a bar dict.
+
+    NULL -> nan so comparisons fail closed (a NULL greek on an unsolvable
+    strike is skipped rather than raising or matching as 0.0). Numerics,
+    including DECIMAL, -> float. Anything else (VARCHAR expiry, dates, bools)
+    is returned unchanged.
+    """
+    if value is None:
+        return float("nan")
+    if isinstance(value, (int, float, Decimal)) and not isinstance(value, bool):
+        return float(value)
+    return value
 
 
 logger = logging.getLogger(__name__)
@@ -150,11 +167,12 @@ class DuckDBParquetLoader(DataSource):
         results = cursor.fetchall()
         column_names = [desc[0] for desc in cursor.description]
 
-        data: Dict[str, Dict[str, float]] = {}
+        data: Dict[str, Dict[str, Any]] = {}
         for row in results:
             time_str = str(row[0])
             data[time_str] = {
-                column_names[i]: float(row[i]) for i in range(1, len(column_names))
+                column_names[i]: _coerce_value(row[i])
+                for i in range(1, len(column_names))
             }
         return data
 
@@ -297,10 +315,9 @@ class DuckDBVortexLoader(DataSource):
         data: Dict[str, Dict[str, Any]] = {}
         for row in results:
             time_str = str(row[0])
-            # Raw values, not float(): greeks can be NULL on illiquid strikes and
-            # extra columns may be non-numeric (e.g. VARCHAR expiry).
             data[time_str] = {
-                column_names[i]: row[i] for i in range(1, len(column_names))
+                column_names[i]: _coerce_value(row[i])
+                for i in range(1, len(column_names))
             }
         return data
 
