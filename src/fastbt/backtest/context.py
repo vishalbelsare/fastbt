@@ -28,18 +28,14 @@ from fastbt.backtest.models import Instrument
 logger = logging.getLogger(__name__)
 
 
-def _parse_instrument_key(key: str) -> Instrument:
+def _parse_instrument_key(key: Any) -> Instrument:
     """
     Parse a cache-key string back into an Instrument.
-
-    Phase 1 shortcut: assumes key format '{strike}{opt_type}' with
-    opt_type being 'CE' or 'PE' (exactly 2 characters).
-    Example: '23600CE' → Instrument(23600, 'CE')
-
-    Phase 2: replace with a proper SymbolParser for multi-expiry support.
     """
-    opt_type = key[-2:]  # "CE" or "PE"
-    strike = int(key[:-2])
+    if isinstance(key, Instrument):
+        return key
+    opt_type = str(key)[-2:]  # "CE" or "PE"
+    strike = int(str(key)[:-2])
     return Instrument(strike=strike, opt_type=opt_type)
 
 
@@ -136,8 +132,10 @@ class DayStartContext:
             instrument.strike,
             instrument.opt_type,
         )
-        if data:
-            self._cache[key] = data
+        # Cache even when empty (matches BarContext._lazy_fetch): a strike absent
+        # from the chain would otherwise be re-queried by every strategy sharing
+        # this day's cache.
+        self._cache[key] = data
 
     def add_to_cache(self, key: str, data: Dict[Any, Any]) -> None:
         """

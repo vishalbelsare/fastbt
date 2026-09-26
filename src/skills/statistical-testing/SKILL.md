@@ -4,7 +4,7 @@ description: Rigorous statistical evaluation of trading strategy returns to dete
 license: MIT
 metadata:
   version: "2.1.0"
-  capabilities: ["hypothesis_testing", "intent_detection", "temporal_validation", "benchmark_comparison", "conditional_analysis", "distribution_checks", "multiple_testing_correction", "overfitting_detection", "effect_size", "autocorrelation_check", "fdr_correction"]
+  capabilities: "hypothesis_testing, intent_detection, temporal_validation, benchmark_comparison, conditional_analysis, distribution_checks, multiple_testing_correction, overfitting_detection, effect_size, autocorrelation_check, fdr_correction"
 ---
 
 # Statistical Testing Skill

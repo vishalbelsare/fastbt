@@ -1,0 +1,21 @@
+[
+  { "query": "Turn this Python trading bot into a spec so another team can reimplement it in Java.", "should_trigger": true },
+  { "query": "Document this API for our partners.", "should_trigger": false },
+  { "query": "Write a detailed spec from this backtest code for live trading, no code snippets.", "should_trigger": true },
+  { "query": "Refactor this function to use async.", "should_trigger": false },
+  { "query": "Create a developer-ready specification from these tests and source code.", "should_trigger": true },
+  { "query": "Migrate our CSV pipeline to a new cloud provider.", "should_trigger": false },
+  { "query": "Extract the contract from this repo so we can rebuild it elsewhere.", "should_trigger": true },
+  { "query": "Summarize what this code does.", "should_trigger": false },
+  { "query": "Generate a machine-readable requirements doc from this implementation.", "should_trigger": true },
+  { "query": "Fix the bug in this function.", "should_trigger": false },
+  { "query": "Produce a handoff spec for the next team, no tests or run results.", "should_trigger": true },
+  { "query": "Write unit tests for this module.", "should_trigger": false },
+  { "query": "Convert this backtest into a live trading specification.", "should_trigger": true },
+  { "query": "Update the README with installation steps.", "should_trigger": false },
+  { "query": "Create a cross-platform spec from this codebase.", "should_trigger": true },
+  { "query": "Explain the architecture of this project.", "should_trigger": false },
+  { "query": "Build a detailed spec for migration, excluding code and test cases.", "should_trigger": true },
+  { "query": "Optimize the performance of this loop.", "should_trigger": false },
+  { "query": "Turn these partial docs and tests into a full implementation spec.", "should_trigger": true }
+]

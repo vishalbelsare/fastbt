@@ -1,11 +1,10 @@
 ---
-
 name: load-data
 description: Ultra-fast data discovery and loading skill for industrial finance datasets. Handles CSV, JSON, DuckDB, Parquet, and Feather with memory-efficient 2-step discovery and loading.
 license: MIT
 metadata:
   version: "1.0"
-  capabilities: ["CSV", "JSON", "DuckDB", "Parquet", "Feather", "Bulk Loading"]
+  capabilities: "CSV, JSON, DuckDB, Parquet, Feather, Bulk Loading"
 ---
 
 # Load Data Skill

@@ -1,0 +1,7 @@
+interface:
+  display_name: "Code To Detailed Spec"
+  short_description: "Turn code into developer-ready specs"
+  default_prompt: "Convert this implementation into a detailed developer-ready specification."
+
+policy:
+  allow_implicit_invocation: true

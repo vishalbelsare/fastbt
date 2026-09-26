@@ -3,13 +3,15 @@ Tests for fastbt.backtest.data — DataSource protocol and DuckDBParquetLoader.
 Run with: uv run pytest tests/backtest/test_data.py -v
 """
 
+import math
 import os
 import inspect
 
+import duckdb
 import pandas as pd
 import pytest
 
-from fastbt.backtest.data import DataSource, DuckDBParquetLoader
+from fastbt.backtest.data import DataSource, DuckDBParquetLoader, DuckDBVortexLoader
 
 REAL_DATA = os.path.expandvars("$HOME/data/q1_2025.parquet")
 
@@ -145,6 +147,80 @@ class TestGetInstrumentData:
     def test_pe_option(self, loader):
         result = loader.get_instrument_data("2025-01-02", 23400, "PE")
         assert len(result) == 4
+
+
+# ─── get_instrument_data: NULL / non-numeric extra columns (issue #16) ────────
+
+
+def _vortex_available() -> bool:
+    try:
+        duckdb.connect().execute("INSTALL vortex; LOAD vortex;")
+        return True
+    except Exception:
+        return False
+
+
+@pytest.fixture(scope="module", params=["parquet", "vortex"])
+def mixed_loader(request, tmp_path_factory):
+    """
+    Loader over a file whose extra columns hold a NULL greek, a DECIMAL and a
+    VARCHAR expiry — the three cases that used to raise in float().
+    """
+    fmt = request.param
+    if fmt == "vortex" and not _vortex_available():
+        pytest.skip("DuckDB vortex extension not available")
+
+    path = tmp_path_factory.mktemp("mixed") / f"mixed.{fmt}"
+    con = duckdb.connect()
+    if fmt == "vortex":
+        con.execute("LOAD vortex")
+    con.execute(
+        f"""
+        COPY (
+            SELECT * FROM (VALUES
+                ('2025-01-02', '09:15:00', 23400, 'CE', 100.0, 105.0, 98.0, 102.0, 500.0,
+                 0.52::DOUBLE, 1.25::DECIMAL(10, 2), '2025-01-30 00:00:00'),
+                ('2025-01-02', '09:16:00', 23400, 'CE', 101.0, 106.0, 99.0, 103.0, 400.0,
+                 NULL::DOUBLE, 1.50::DECIMAL(10, 2), '2025-01-30 00:00:00')
+            ) t(trade_date, trade_time, strike, option_type, open, high, low, close,
+                volume, delta, iv, expiry)
+        ) TO '{path}' (FORMAT {fmt})
+        """
+    )
+    extra = ["delta", "iv", "expiry"]
+    if fmt == "vortex":
+        return DuckDBVortexLoader(str(path), extra_columns=extra)
+    return DuckDBParquetLoader(str(path), extra_columns=extra)
+
+
+class TestGetInstrumentDataMixedColumns:
+    def test_does_not_raise_and_keeps_all_bars(self, mixed_loader):
+        result = mixed_loader.get_instrument_data("2025-01-02", 23400, "CE")
+        assert list(result) == ["09:15:00", "09:16:00"]
+
+    def test_null_becomes_nan(self, mixed_loader):
+        result = mixed_loader.get_instrument_data("2025-01-02", 23400, "CE")
+        assert math.isnan(result["09:16:00"]["delta"])
+        assert result["09:15:00"]["delta"] == pytest.approx(0.52)
+
+    def test_null_greek_fails_closed_in_comparisons(self, mixed_loader):
+        result = mixed_loader.get_instrument_data("2025-01-02", 23400, "CE")
+        delta = result["09:16:00"]["delta"]
+        assert not (delta > 0.3) and not (delta < 0.3)
+
+    def test_decimal_becomes_float(self, mixed_loader):
+        bar = mixed_loader.get_instrument_data("2025-01-02", 23400, "CE")["09:15:00"]
+        assert type(bar["iv"]) is float
+        assert bar["iv"] == pytest.approx(1.25)
+
+    def test_varchar_kept_as_str(self, mixed_loader):
+        bar = mixed_loader.get_instrument_data("2025-01-02", 23400, "CE")["09:15:00"]
+        assert bar["expiry"] == "2025-01-30 00:00:00"
+
+    def test_ohlcv_are_floats(self, mixed_loader):
+        bar = mixed_loader.get_instrument_data("2025-01-02", 23400, "CE")["09:16:00"]
+        for col in ("open", "high", "low", "close", "volume"):
+            assert type(bar[col]) is float
 
 
 # ─── get_available_dates ─────────────────────────────────────────────────────
